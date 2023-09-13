@@ -1,29 +1,32 @@
 package main
 
 import (
-    "bufio"
-    "fmt"
-    "os"
-    "strings"
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
+
+    flag "github.com/spf13/pflag"
 )
 
 func main() {
-    if len(os.Args) != 4 {
-        fmt.Println("Usage: go run main.go <config file> <key> <value>")
-        return
-    }
+    configFile := flag.StringP("config", "c", "", "Path to the config file")
+	key := flag.StringP("key", "k", "", "Key to update or add")
+	value := flag.StringP("value", "v", "", "Value to set for the key")
+	flag.Parse()
 
-    configFile := os.Args[1]
-    key := os.Args[2]
-    value := os.Args[3]
+	if *configFile == "" || *key == "" || *value == "" {
+		fmt.Println("Usage: config-updater --config/-c <config file> --key/-k <key> --value/-v <value>")
+		return
+	}
 
-    // Read the config file
-    file, err := os.OpenFile(configFile, os.O_RDWR|os.O_CREATE, 0644)
-    if err != nil {
-        fmt.Printf("Error opening config file: %v\n", err)
-        return
-    }
-    defer file.Close()
+	// Read the config file
+	file, err := os.OpenFile(*configFile, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		fmt.Printf("Error opening config file: %v\n", err)
+		return
+	}
+	defer file.Close()
 
     scanner := bufio.NewScanner(file)
     configLines := []string{}
@@ -34,8 +37,13 @@ func main() {
         if len(parts) == 2 {
             configKey := strings.TrimSpace(parts[0])
             configValue := strings.TrimSpace(parts[1])
-            if configKey == key {
-                configValue = value
+            if configKey == *key {
+                // Check if the value has quotes, and if so, preserve them
+                if strings.HasPrefix(*value, `"`) && strings.HasSuffix(*value, `"`) {
+                    configValue = fmt.Sprintf(`"%s"`, *value)
+                } else {
+                    configValue = *value
+                }
             }
             configLines = append(configLines, fmt.Sprintf("%s=%s", configKey, configValue))
         } else {
@@ -52,5 +60,5 @@ func main() {
         fmt.Fprintln(file, line)
     }
 
-    fmt.Printf("Config file updated: %s=%s\n", key, value)
+    fmt.Printf("Config file updated: %s=%s\n", *key, *value)
 }
